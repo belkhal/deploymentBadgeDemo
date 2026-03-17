@@ -1,9 +1,6 @@
 name: Deploy to dev
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
+  push:
     paths:
       - force-app/**
     branches:
