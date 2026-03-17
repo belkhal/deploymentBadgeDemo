@@ -10,5 +10,5 @@ public with sharing class PipelineValidationTest {
     public static String getMessage() {
         return 'Pipeline validation successful';
     }
-    //test
+    
 }
