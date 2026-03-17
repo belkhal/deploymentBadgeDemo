@@ -1,30 +1,63 @@
-name: Close Production Pull Request
-
-# only trigger on pull request closed events
+name: Deploy to dev
 on:
   pull_request:
-    types: [ closed ]
-    branches:
-      - master
+    types:
+      - opened
+      - synchronize
     paths:
-      - 'force-app/**'
+      - force-app/**
+    branches:
+      - develop
 jobs:
-  merge_job:
-    # this job will only run if the PR has been merged
-    if: github.event.pull_request.merged == true
+  deploy-to-dev:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Deploy on ${{ vars.ENVIRONMENT_NAME }}
-      uses: jawills/sf-deploy@v1.0
-      with:
-        SFDX_AUTH_URL`: ${{ secrets.SFDX_AUTH_URL }}
-        DRY_RUN: false
-        TEST_LEVEL: RunLocalTests
-  close_job:
-    # this job will only run if the PR has been closed without being merged
-    if: github.event.pull_request.merged == false
-    runs-on: ubuntu-latest
-    steps:
-    - run: |
-        echo PR #${{ github.event.number }} has been closed without being merge
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "14"
+      - name: Checkout source code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install Salesforce CLI
+        run: >
+          wget
+          https://developer.salesforce.com/media/salesforce-cli/sfdx/channels/stable/sfdx-linux-x64.tar.xz
+
+          mkdir ~/sfdx
+
+          tar xJf sfdx-linux-x64.tar.xz -C ~/sfdx --strip-components 1
+
+          echo "$HOME/sfdx/bin" >> $GITHUB_PATH
+
+          ~/sfdx/bin/sfdx version
+      - name: Populate auth file with SFDX_URL secret of target org
+        run: |
+          echo ${{ secrets.SFDX_URL}} > ./SFDX_URL.txt
+      - name: Authenticate to target Org
+        run: sfdx auth:sfdxurl:store -f ./SFDX_URL.txt -s -a targetOrg
+      - name: Installing sfdx git delta
+        run: |
+          echo y | sfdx plugins:install sfdx-git-delta
+          sfdx plugins 
+      - name: Create delta packages for new, modified or deleted metadata
+        run: >
+          mkdir changed-sources
+
+          sfdx sgd:source:delta --to "HEAD" --from "HEAD^" --output changed-sources/ --generate-delta --source force-app/ 
+      - name: Installing java
+        run: sudo apt-get update && sudo apt-get install default-jdk
+      - name: Installing SFDX scanner
+        run: sfdx plugins:install @salesforce/sfdx-scanner
+      - name: Scan code
+        run: sfdx scanner:run --format sarif --target 'changed-sources/**/*.cls'
+          --category 'Design,Best Practices,Performance,Security' --outfile
+          'apexScanResults.sarif'
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: changed-sources/apexScanResults.sarif
+      - name: Deployment - run all tests
+        run: >
+          sfdx force:source:deploy -p "changed-sources/force-app"  --testlevel
+          RunLocalTests --json
