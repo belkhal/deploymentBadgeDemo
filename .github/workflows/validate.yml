@@ -30,7 +30,7 @@ jobs:
         run: |
           echo ${{ secrets.SFDX_URL}} > ./SFDX_URL.txt
       - name: Authenticate to target Org
-        run: sf org login sfdx-url --sfdx-auth-file ./SFDX_URL.txt --set-default --alias targetOrg
+        run: sf org login sfdx-url --sfdx-url-file ./SFDX_URL.txt --set-default --alias targetOrg
       - name: Installing sfdx git delta
         run: |
           echo y | sf plugins install sfdx-git-delta
@@ -38,7 +38,7 @@ jobs:
       - name: Create delta packages for new, modified or deleted metadata
         run: |
           mkdir -p changed-sources
-          sf sgd:source:delta --to "HEAD" --from "HEAD^" --output changed-sources/ --generate-delta --source force-app/ 
+          sf sgd:source:delta --to "HEAD" --from "HEAD^" --output-dir changed-sources/ --generate-delta --source-dir force-app/ 
       - name: Installing java
         run: sudo apt-get update && sudo apt-get install default-jdk
       - name: Installing SFDX scanner
@@ -49,5 +49,5 @@ jobs:
         uses: github/codeql-action/upload-sarif@v1
         with:
           sarif_file: apexScanResults.sarif
-      - name: Deployment - run all tests
-        run: sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --dry-run --json
+      - name: Validate Code
+        run: sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --target-org targetOrg --json
