@@ -1,17 +1,18 @@
 {
   "packageDirectories": [
     {
-      "path": "force-app",
-      "default": true,
-      "package": "LWCRecipes"
-    },
-    {
       "path": "force-app/core",
-      "package": "Bedrock-Core"
+      "package": "Bedrock-Core",
+      "default": true,
+      "versionName": "v1.0",
+      "versionNumber": "1.0.0.NEXT"
     },
     {
       "path": "force-app/healthcare",
       "package": "Bedrock-Healthcare",
+      "default": false,
+      "versionName": "v1.0",
+      "versionNumber": "1.0.0.NEXT",
       "dependencies": [
         {
           "package": "Bedrock-Core"
@@ -21,6 +22,9 @@
     {
       "path": "force-app/finance",
       "package": "Bedrock-Finance",
+      "default": false,
+      "versionName": "v1.0",
+      "versionNumber": "1.0.0.NEXT",
       "dependencies": [
         {
           "package": "Bedrock-Core"
