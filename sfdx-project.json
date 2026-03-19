@@ -1,20 +1,38 @@
 {
   "packageDirectories": [
     {
-      "path": "force-app",
+      "path": "force-app/core",
+      "package": "Bedrock-Core",
       "default": true,
-      "package": "LWCRecipes",
-      "versionName": "Winter '26",
-      "versionNumber": "65.0.0.NEXT"
+      "versionName": "v1.0",
+      "versionNumber": "1.0.0.NEXT"
+    },
+    {
+      "path": "force-app/healthcare",
+      "package": "Bedrock-Healthcare",
+      "default": false,
+      "versionName": "v1.0",
+      "versionNumber": "1.0.0.NEXT",
+      "dependencies": [
+        {
+          "package": "Bedrock-Core"
+        }
+      ]
+    },
+    {
+      "path": "force-app/finance",
+      "package": "Bedrock-Finance",
+      "default": false,
+      "versionName": "v1.0",
+      "versionNumber": "1.0.0.NEXT",
+      "dependencies": [
+        {
+          "package": "Bedrock-Core"
+        }
+      ]
     }
   ],
   "namespace": "",
   "sourceApiVersion": "65.0",
-  "sfdcLoginUrl": "https://login.salesforce.com",
-  "packageAliases": {
-    "LWCRecipes": "0Ho3t000000KywNCAS",
-    "LWCRecipes@65.0.0-2": "04tKi000000LPEZIA4",
-    "LWCRecipes@65.0.0-14": "04tKi000000kbj6IAA",
-    "LWCRecipes@65.0.0-15": "04tKi000000kbjBIAQ"
-  }
+  "sfdcLoginUrl": "https://login.salesforce.com"
 }
