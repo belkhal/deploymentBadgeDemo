@@ -4,7 +4,7 @@ on:
     paths:
       - force-app/**
     branches:
-      - main
+      - develop
 
 jobs:
   detect-changes:
