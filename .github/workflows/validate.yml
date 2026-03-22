@@ -1,4 +1,8 @@
 name: Validate Package Changes
+
+permissions:
+  contents: read
+
 on:
   pull_request:
     types:
@@ -17,10 +21,10 @@ jobs:
       healthcare: ${{ steps.filter.outputs.healthcare }}
       finance: ${{ steps.filter.outputs.finance }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           base: ${{ github.event.pull_request.base.sha }}
@@ -38,10 +42,10 @@ jobs:
     if: needs.detect-changes.outputs.core == 'true' || needs.detect-changes.outputs.healthcare == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "14"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
@@ -68,10 +72,10 @@ jobs:
     if: needs.detect-changes.outputs.core == 'true' || needs.detect-changes.outputs.finance == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "14"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
@@ -95,16 +99,19 @@ jobs:
 
   apex-scan:
     needs: detect-changes
+    permissions:
+      contents: read
+      security-events: write
     if: >-
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.healthcare == 'true' ||
       needs.detect-changes.outputs.finance == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "14"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
@@ -130,6 +137,6 @@ jobs:
       - name: Scan code
         run: sf scanner run --format sarif --target 'changed-sources/**/*.cls' --category 'Design,Best Practices,Performance,Security' --outfile apexScanResults.sarif
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: apexScanResults.sarif

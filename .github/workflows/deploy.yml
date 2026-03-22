@@ -14,8 +14,8 @@ jobs:
       healthcare: ${{ steps.filter.outputs.healthcare }}
       finance: ${{ steps.filter.outputs.finance }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -31,10 +31,10 @@ jobs:
     if: needs.detect-changes.outputs.core == 'true' || needs.detect-changes.outputs.healthcare == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "14"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Install Salesforce CLI
@@ -60,10 +60,10 @@ jobs:
     if: needs.detect-changes.outputs.core == 'true' || needs.detect-changes.outputs.finance == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "14"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Install Salesforce CLI
