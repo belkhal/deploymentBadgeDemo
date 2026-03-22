@@ -1,19 +1,40 @@
-name: Deploy to dev
+name: Deploy to orgs
 on:
   push:
     paths:
       - force-app/**
     branches:
-      - develop
+      - main
+
 jobs:
-  deploy-to-dev:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+      healthcare: ${{ steps.filter.outputs.healthcare }}
+      finance: ${{ steps.filter.outputs.finance }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'force-app/core/**'
+            healthcare:
+              - 'force-app/healthcare/**'
+            finance:
+              - 'force-app/finance/**'
+
+  deploy-healthcare:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.core == 'true' || needs.detect-changes.outputs.healthcare == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-node@v3
         with:
           node-version: "14"
-      - name: Checkout source code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Salesforce CLI
@@ -23,28 +44,42 @@ jobs:
           tar xJf sf.tar.xz -C ~/sf --strip-components 1
           echo "$HOME/sf/bin" >> $GITHUB_PATH
           ~/sf/bin/sf version
-      - name: Populate auth file with SFDX_URL secret of target org
+      - name: Authenticate to Healthcare Org
         run: |
-          echo ${{ secrets.SFDX_URL}} > ./SFDX_URL.txt
-      - name: Authenticate to target Org
-        run: sf org login sfdx-url --sfdx-url-file ./SFDX_URL.txt --set-default --alias targetOrg
-      - name: Installing sfdx git delta
-        run: |
-          echo y | sf plugins install sfdx-git-delta
-          sf plugins
-      - name: Create delta packages for new, modified or deleted metadata
-        run: |
-          mkdir -p changed-sources
-          sf sgd:source:delta --to "HEAD" --from "HEAD^" --output-dir changed-sources/ --generate-delta --source-dir force-app/ 
-      - name: Installing java
-        run: sudo apt-get update && sudo apt-get install default-jdk
-      - name: Installing SFDX scanner
-        run: sf plugins install @salesforce/sfdx-scanner
-      - name: Scan code
-        run: sf scanner run --format sarif --target 'changed-sources/**/*.cls' --category 'Design,Best Practices,Performance,Security' --outfile apexScanResults.sarif
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v1
+          echo ${{ secrets.SFDX_URL_HEALTHCARE }} > ./AUTH.txt
+          sf org login sfdx-url --sfdx-url-file ./AUTH.txt --set-default --alias healthcareOrg
+      - name: Deploy Core to Healthcare Org
+        if: needs.detect-changes.outputs.core == 'true'
+        run: sf project deploy start --source-dir force-app/core --target-org healthcareOrg --json
+      - name: Deploy Healthcare to Healthcare Org
+        if: needs.detect-changes.outputs.healthcare == 'true'
+        run: sf project deploy start --source-dir force-app/healthcare --target-org healthcareOrg --json
+
+  deploy-finance:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.core == 'true' || needs.detect-changes.outputs.finance == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v3
         with:
-          sarif_file: apexScanResults.sarif
-      - name: Deploy
-        run: sf project deploy start --source-dir changed-sources/force-app --target-org targetOrg --json
+          node-version: "14"
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install Salesforce CLI
+        run: |
+          wget -q https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz -O sf.tar.xz
+          mkdir -p ~/sf
+          tar xJf sf.tar.xz -C ~/sf --strip-components 1
+          echo "$HOME/sf/bin" >> $GITHUB_PATH
+          ~/sf/bin/sf version
+      - name: Authenticate to Finance Org
+        run: |
+          echo ${{ secrets.SFDX_URL_FINANCE }} > ./AUTH.txt
+          sf org login sfdx-url --sfdx-url-file ./AUTH.txt --set-default --alias financeOrg
+      - name: Deploy Core to Finance Org
+        if: needs.detect-changes.outputs.core == 'true'
+        run: sf project deploy start --source-dir force-app/core --target-org financeOrg --json
+      - name: Deploy Finance to Finance Org
+        if: needs.detect-changes.outputs.finance == 'true'
+        run: sf project deploy start --source-dir force-app/finance --target-org financeOrg --json

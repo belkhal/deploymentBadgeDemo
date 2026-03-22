@@ -13,4 +13,4 @@ coverage:
                     - Apex
         patch: off
 ignore:
-    - 'force-app/main/default/staticresources/**'
+    - 'force-app/*/main/default/staticresources/**'

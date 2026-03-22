@@ -1,4 +1,4 @@
-name: Deploy to dev
+name: Validate Package Changes
 on:
   pull_request:
     types:
@@ -7,18 +7,44 @@ on:
     paths:
       - force-app/**
     branches:
-      - develop
+      - main
+
 jobs:
-  validate-deployment-to-dev:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+      healthcare: ${{ steps.filter.outputs.healthcare }}
+      finance: ${{ steps.filter.outputs.finance }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          filters: |
+            core:
+              - 'force-app/core/**'
+            healthcare:
+              - 'force-app/healthcare/**'
+            finance:
+              - 'force-app/finance/**'
+
+  validate-healthcare:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.core == 'true' || needs.detect-changes.outputs.healthcare == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-node@v3
         with:
           node-version: "14"
-      - name: Checkout source code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Install Salesforce CLI
         run: |
           wget -q https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz -O sf.tar.xz
@@ -26,11 +52,69 @@ jobs:
           tar xJf sf.tar.xz -C ~/sf --strip-components 1
           echo "$HOME/sf/bin" >> $GITHUB_PATH
           ~/sf/bin/sf version
-      - name: Populate auth file with SFDX_URL secret of target org
+      - name: Authenticate to Healthcare Org
         run: |
-          echo ${{ secrets.SFDX_URL}} > ./SFDX_URL.txt
-      - name: Authenticate to target Org
-        run: sf org login sfdx-url --sfdx-url-file ./SFDX_URL.txt --set-default --alias targetOrg
+          echo ${{ secrets.SFDX_URL_HEALTHCARE }} > ./AUTH.txt
+          sf org login sfdx-url --sfdx-url-file ./AUTH.txt --set-default --alias healthcareOrg
+      - name: Validate Core against Healthcare Org
+        if: needs.detect-changes.outputs.core == 'true'
+        run: sf project deploy validate --source-dir force-app/core --test-level RunLocalTests --target-org healthcareOrg --json
+      - name: Validate Healthcare against Healthcare Org
+        if: needs.detect-changes.outputs.healthcare == 'true'
+        run: sf project deploy validate --source-dir force-app/healthcare --test-level RunLocalTests --target-org healthcareOrg --json
+
+  validate-finance:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.core == 'true' || needs.detect-changes.outputs.finance == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "14"
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install Salesforce CLI
+        run: |
+          wget -q https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz -O sf.tar.xz
+          mkdir -p ~/sf
+          tar xJf sf.tar.xz -C ~/sf --strip-components 1
+          echo "$HOME/sf/bin" >> $GITHUB_PATH
+          ~/sf/bin/sf version
+      - name: Authenticate to Finance Org
+        run: |
+          echo ${{ secrets.SFDX_URL_FINANCE }} > ./AUTH.txt
+          sf org login sfdx-url --sfdx-url-file ./AUTH.txt --set-default --alias financeOrg
+      - name: Validate Core against Finance Org
+        if: needs.detect-changes.outputs.core == 'true'
+        run: sf project deploy validate --source-dir force-app/core --test-level RunLocalTests --target-org financeOrg --json
+      - name: Validate Finance against Finance Org
+        if: needs.detect-changes.outputs.finance == 'true'
+        run: sf project deploy validate --source-dir force-app/finance --test-level RunLocalTests --target-org financeOrg --json
+
+  apex-scan:
+    needs: detect-changes
+    if: >-
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.healthcare == 'true' ||
+      needs.detect-changes.outputs.finance == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "14"
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install Salesforce CLI
+        run: |
+          wget -q https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz -O sf.tar.xz
+          mkdir -p ~/sf
+          tar xJf sf.tar.xz -C ~/sf --strip-components 1
+          echo "$HOME/sf/bin" >> $GITHUB_PATH
+          ~/sf/bin/sf version
       - name: Installing sfdx git delta
         run: |
           echo y | sf plugins install sfdx-git-delta
@@ -38,9 +122,9 @@ jobs:
       - name: Create delta packages for new, modified or deleted metadata
         run: |
           mkdir -p changed-sources
-          sf sgd:source:delta --to "HEAD" --from "HEAD^" --output-dir changed-sources/ --generate-delta --source-dir force-app/ 
+          sf sgd:source:delta --to "${{ github.event.pull_request.head.sha }}" --from "${{ github.event.pull_request.base.sha }}" --output-dir changed-sources/ --generate-delta --source-dir force-app/
       - name: Installing java
-        run: sudo apt-get update && sudo apt-get install default-jdk
+        run: sudo apt-get update && sudo apt-get install -y default-jdk
       - name: Installing SFDX scanner
         run: sf plugins install @salesforce/sfdx-scanner
       - name: Scan code
@@ -49,5 +133,3 @@ jobs:
         uses: github/codeql-action/upload-sarif@v1
         with:
           sarif_file: apexScanResults.sarif
-      - name: Validate Code
-        run: sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --target-org targetOrg --json
