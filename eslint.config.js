@@ -11,29 +11,29 @@ module.exports = defineConfig([
     // Global ignores
     {
         ignores: [
-            'force-app/main/default/staticresources/**', // Ignore third party libraries
+            'force-app/*/main/default/staticresources/**',
             'force-app/test/jest-mocks/lightning/modal.js' // Ignore modal mock as it contains decorators (unsupported by ESLint)
         ]
     },
 
     // Aura configuration
     {
-        files: ['force-app/main/default/aura/**/*.js'],
+        files: ['force-app/*/main/default/aura/**/*.js'],
         extends: [
             ...auraConfig.configs.recommended,
             ...auraConfig.configs.locker
         ]
     },
 
-    // LWC configuration for force-app/main/default/lwc
+    // LWC configuration for unlocked package directories
     {
-        files: ['force-app/main/default/lwc/**/*.js'],
+        files: ['force-app/*/main/default/lwc/**/*.js'],
         extends: [salesforceLwcConfig]
     },
 
     // LWC configuration with override for LWC test files
     {
-        files: ['force-app/main/default/lwc/**/*.test.js'],
+        files: ['force-app/*/main/default/lwc/**/*.test.js'],
         extends: [salesforceLwcConfig],
         rules: {
             '@lwc/lwc/no-unexpected-wire-adapter-usages': 'off'
