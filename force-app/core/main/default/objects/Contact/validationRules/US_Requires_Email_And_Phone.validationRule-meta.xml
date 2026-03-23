@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>US_Requires_Email_And_Phone</fullName>
+    <active>true</active>
+    <description>When Mailing Country indicates United States, Email and Phone are required.</description>
+    <errorConditionFormula>AND(
+  OR(
+    MailingCountry = &quot;US&quot;,
+    MailingCountry = &quot;USA&quot;,
+    MailingCountry = &quot;United States&quot;
+  ),
+  OR(
+    ISBLANK(Email),
+    ISBLANK(Phone)
+  )
+)</errorConditionFormula>
+    <errorDisplayField>Email</errorDisplayField>
+    <errorMessage>When Country is US, Email and Phone are required.</errorMessage>
+</ValidationRule>
